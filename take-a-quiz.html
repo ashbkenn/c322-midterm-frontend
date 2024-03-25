@@ -3,9 +3,201 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>Take a Quiz</title>
+  <link rel="stylesheet" href="navbar.css">
+  <link rel="stylesheet" href="general.css">
+  <link rel="stylesheet" href="cards.css">
+  <style>
+    #quiz-interface {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+    }
+
+    #question-display {
+      border: 1px solid grey;
+      padding: 50px;
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-  
+  <ul class="topnav">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="add-question.html">Add questions</a></li>
+    <li><a href="make-a-quiz.html">Create a quiz</a></li>
+    <li><a class="active" href="take-a-quiz.html">Take a quiz</a></li>
+    <li class="right"><a href="#about">About</a></li>
+  </ul>
+
+  <h2>Here are the list of all available quizzes. Click on a quiz to start taking the quiz.</h2>
+  <div id="quiz-list-container" class="cards">
+    <!-- Quizzes will be listed here -->
+  </div>
+
+  <div id="quiz-interface" class="hidden">
+    <div id="question-display"></div>
+    <button id="previous-button" onclick="previousQuestion()" class="hidden">Previous</button>
+    <button id="next-button" onclick="nextQuestion()">Next</button>
+  </div>
+
+  <script>
+    let currentQuiz = null;
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadAvailableQuizzes();
+    });
+
+    async function loadAvailableQuizzes() {
+      let host = "http://localhost:8080";
+      let response = await fetch(host + "/quizzes");
+      let quizzes = await response.json();
+
+      let container = document.getElementById('quiz-list-container');
+      quizzes.forEach(quiz => {
+        let quizCard = document.createElement('div');
+        quizCard.className = 'card';
+        quizCard.innerHTML = `
+          <div>
+            <strong>${quiz.id}</strong>
+          </div>
+          <h3>${quiz.title}</h3>
+          <p>(${quiz.questionIds.length} questions)</p>
+        `;
+        quizCard.onclick = function() {
+          startQuiz(quiz.id);
+        };
+        container.appendChild(quizCard);
+      });
+    }
+
+    async function startQuiz(quizId) {
+      let response = await fetch(`http://localhost:8080/quizzes/${quizId}`);
+      currentQuiz = await response.json();
+      currentQuestionIndex = 0;
+      renderQuestion(currentQuestionIndex);
+    }
+
+    function renderQuestion(index) {
+      document.getElementById('quiz-list-container').style.display = 'none';
+      document.querySelector('.topnav').style.display = 'none';
+      showElement('#quiz-interface');
+
+      let question = currentQuiz.questions[index];
+      let questionDisplay = document.getElementById('question-display');
+      questionDisplay.innerHTML = '';
+
+      let img = document.createElement('img');
+      img.src = `http://localhost:8080/questions/${question.id}/image`;
+      img.alt = 'Question image';
+      questionDisplay.appendChild(img);
+
+      let questionText = document.createElement('p');
+      questionText.textContent = question.description;
+      questionDisplay.appendChild(questionText);
+
+      question.choices.forEach((choice, choiceIndex) => {
+        let label = document.createElement('label');
+        let input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'option';
+        input.value = choice;
+        input.id = 'choice' + choiceIndex;
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(choice));
+        questionDisplay.appendChild(label);
+        questionDisplay.appendChild(document.createElement('br'));
+      });
+
+      let nextButton = document.getElementById('next-button');
+      if (index === currentQuiz.questions.length - 1) {
+        nextButton.textContent = 'Submit';
+      } else {
+        nextButton.textContent = 'Next';
+      }
+
+      let prevButton = document.getElementById('previous-button');
+      if (index === 0) {
+        prevButton.classList.add('hidden');
+      } else {
+        prevButton.classList.remove('hidden');
+      }
+    }
+
+    function nextQuestion() {
+      checkAndLogAnswer(currentQuestionIndex);
+      if (currentQuestionIndex < currentQuiz.questions.length - 1) {
+        currentQuestionIndex++;
+        renderQuestion(currentQuestionIndex);
+      } else {
+        calculateScore();
+      }
+    }
+
+    function previousQuestion() {
+      checkAndLogAnswer(currentQuestionIndex);
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        renderQuestion(currentQuestionIndex);
+      }
+    }
+
+    function checkAndLogAnswer(questionIndex) {
+          const question = currentQuiz.questions[questionIndex];
+    const selectedOption = document.querySelector(`input[name="option${questionIndex}"]:checked`);
+
+    if (selectedOption) {
+      const isCorrect = question.answer === selectedOption.value;
+      console.log(`Question ${questionIndex + 1}:`, isCorrect ? 'Correct' : 'Incorrect');
+
+      // Optionally, store user's answer for later use, such as detailed feedback
+      userAnswers[questionIndex] = { answer: selectedOption.value, isCorrect };
+    } else {
+      console.log(`Question ${questionIndex + 1}: No answer selected`);
+      // Handle case where no answer was selected, if needed
+    }
+  }
+
+function calculateScore() {
+  // Hide the quiz interface
+  hideElement('#quiz-interface');
+
+  // Calculate the score based on selected answers
+  let userAnswers = document.querySelectorAll('#question-display input[type="radio"]:checked');
+  userAnswers.forEach(answer => {
+    let questionId = answer.closest('.question').dataset.id;
+    let question = currentQuiz.questions.find(q => q.id == questionId);
+    if (question && answer.value === question.answer) {
+      score++;
+    }
+  });
+
+  // Display the score and show the top menu again
+  showElement('.topnav');
+  let resultText = `You completed the quiz ${currentQuiz.title}. You scored ${score} out of ${currentQuiz.questions.length}.`;
+  document.getElementById('quiz-list-container').innerHTML = resultText;
+  showElement('#quiz-list-container');
+
+  // Reset the quiz for another attempt or different quiz
+  currentQuiz = null;
+  currentQuestionIndex = 0;
+  score = 0;
+}
+
+function hideElement(selector) {
+  document.querySelector(selector).classList.add('hidden');
+}
+
+function showElement(selector) {
+  document.querySelector(selector).classList.remove('hidden');
+}
+</script>
 </body>
 </html>
