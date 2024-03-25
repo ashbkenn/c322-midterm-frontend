@@ -83,6 +83,7 @@
       currentQuiz = await response.json();
       currentQuestionIndex = 0;
       renderQuestion(currentQuestionIndex);
+      score = 0;
     }
 
     function renderQuestion(index) {
@@ -116,30 +117,39 @@
         questionDisplay.appendChild(document.createElement('br'));
       });
 
-      let nextButton = document.getElementById('next-button');
-      if (index === currentQuiz.questions.length - 1) {
-        nextButton.textContent = 'Submit';
-      } else {
-        nextButton.textContent = 'Next';
+        // Log the correct answer for the current question
+        console.log(`Correct Answer for Question ${index + 1}: ${question.answer}`);
+
+        let nextButton = document.getElementById('next-button');
+        if (index === currentQuiz.questions.length - 1) {
+          nextButton.textContent = 'Submit';
+        } else {
+          nextButton.textContent = 'Next';
+        }
+
+        let prevButton = document.getElementById('previous-button');
+        if (index === 0) {
+          prevButton.classList.add('hidden');
+        } else {
+          prevButton.classList.remove('hidden');
+        }
       }
 
-      let prevButton = document.getElementById('previous-button');
-      if (index === 0) {
-        prevButton.classList.add('hidden');
-      } else {
-        prevButton.classList.remove('hidden');
-      }
-    }
 
-    function nextQuestion() {
-      checkAndLogAnswer(currentQuestionIndex);
-      if (currentQuestionIndex < currentQuiz.questions.length - 1) {
-        currentQuestionIndex++;
-        renderQuestion(currentQuestionIndex);
-      } else {
-        calculateScore();
+      function nextQuestion() {
+        checkAndLogAnswer(currentQuestionIndex);
+
+        // Check if this was the last question
+        if (currentQuestionIndex === currentQuiz.questions.length - 1) {
+          // Now we should calculate the score
+          calculateScore();
+          // Do not set currentQuiz to null here
+        } else {
+          // If not the last question, go to the next one
+          currentQuestionIndex++;
+          renderQuestion(currentQuestionIndex);
+        }
       }
-    }
 
     function previousQuestion() {
       checkAndLogAnswer(currentQuestionIndex);
@@ -148,56 +158,62 @@
         renderQuestion(currentQuestionIndex);
       }
     }
+  
+    let userAnswers = []; // Add this to store user answers
 
     function checkAndLogAnswer(questionIndex) {
-          const question = currentQuiz.questions[questionIndex];
-    const selectedOption = document.querySelector(`input[name="option${questionIndex}"]:checked`);
+      const question = currentQuiz.questions[questionIndex];
+      const selectedOption = document.querySelector('input[name="option"]:checked');
 
-    if (selectedOption) {
-      const isCorrect = question.answer === selectedOption.value;
-      console.log(`Question ${questionIndex + 1}:`, isCorrect ? 'Correct' : 'Incorrect');
-
-      // Optionally, store user's answer for later use, such as detailed feedback
-      userAnswers[questionIndex] = { answer: selectedOption.value, isCorrect };
-    } else {
-      console.log(`Question ${questionIndex + 1}: No answer selected`);
-      // Handle case where no answer was selected, if needed
+      if (selectedOption) {
+        const isCorrect = question.answer === selectedOption.value;
+        console.log(`Question ${questionIndex + 1}:`, isCorrect ? 'Correct' : 'Incorrect');
+        
+        if (isCorrect) {
+          score++; // Increment the score for a correct answer
+        }
+        
+        // ... your existing code ...
+      } else {
+        console.log(`Question ${questionIndex + 1}: No answer selected`);
+      }
     }
-  }
 
-function calculateScore() {
-  // Hide the quiz interface
-  hideElement('#quiz-interface');
 
-  // Calculate the score based on selected answers
-  let userAnswers = document.querySelectorAll('#question-display input[type="radio"]:checked');
-  userAnswers.forEach(answer => {
-    let questionId = answer.closest('.question').dataset.id;
-    let question = currentQuiz.questions.find(q => q.id == questionId);
-    if (question && answer.value === question.answer) {
-      score++;
+    function calculateScore() {
+      // Hide the quiz interface first to show the result to the user
+      hideElement('#quiz-interface');
+
+      // Assuming 'score' has been incremented correctly in 'checkAndLogAnswer'
+      // and 'currentQuiz.questions.length' gives the total number of questions
+
+      // Create the result text with the score and total questions
+      let resultText = `You completed the quiz ${currentQuiz.title}. You scored ${score} out of ${currentQuiz.questions.length}.`;
+
+      // Display the score in the 'quiz-list-container' or another dedicated element for results
+      document.getElementById('quiz-list-container').innerHTML = resultText;
+
+      // Show the top navigation and the container where the result is displayed
+      showElement('.topnav');
+      showElement('#quiz-list-container'); // Assuming you want to reuse this container for displaying the score
+
+      // Reset the quiz for potentially starting a new one
+      currentQuiz = null;
+      currentQuestionIndex = 0;
+      score = 0; // Reset score for the next quiz
+      userAnswers = []; // Clear the array of answers if used for storing each question's answer
     }
-  });
 
-  // Display the score and show the top menu again
-  showElement('.topnav');
-  let resultText = `You completed the quiz ${currentQuiz.title}. You scored ${score} out of ${currentQuiz.questions.length}.`;
-  document.getElementById('quiz-list-container').innerHTML = resultText;
-  showElement('#quiz-list-container');
 
-  // Reset the quiz for another attempt or different quiz
-  currentQuiz = null;
-  currentQuestionIndex = 0;
-  score = 0;
-}
 
-function hideElement(selector) {
-  document.querySelector(selector).classList.add('hidden');
-}
+    function hideElement(selector) {
+      document.querySelector(selector).classList.add('hidden');
+    }
 
-function showElement(selector) {
-  document.querySelector(selector).classList.remove('hidden');
-}
+    function showElement(selector) {
+      document.querySelector(selector).classList.remove('hidden');
+    }
+
 </script>
 </body>
 </html>
